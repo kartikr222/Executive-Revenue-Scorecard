@@ -25,34 +25,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf _site assets
+          rm -rf _site /tmp/brand
           mkdir -p _site/assets
           cp index.html _site/index.html
           touch _site/.nojekyll
 
-          # The repository currently stores the supplied brand package as a ZIP.
-          # Extract it without depending on its internal folder structure.
+          # The repository may also contain a brand ZIP. Extract it as a fallback.
           if [ -f apply-brand-identity-assets.zip ]; then
             mkdir -p /tmp/brand
             unzip -oq apply-brand-identity-assets.zip -d /tmp/brand
           fi
 
+          # Prefer the supplied files committed under assets/.
+          if [ -f assets/logo-circle.jpg ]; then cp assets/logo-circle.jpg _site/assets/logo-circle.jpg; fi
+          if [ -f assets/logo-rectangle.jpg ]; then cp assets/logo-rectangle.jpg _site/assets/logo-rectangle.jpg; fi
+
+          # Fallback: discover equivalent filenames inside the brand package.
           circle="$(find /tmp/brand -type f \( -iname 'logo-circle.jpg' -o -iname 'logo-circle.jpeg' -o -iname 'logo-circle.png' \) | head -n 1 || true)"
           rect="$(find /tmp/brand -type f \( -iname 'logo-rectangle.jpg' -o -iname 'logo-rectangle.jpeg' -o -iname 'logo-rectangle.png' \) | head -n 1 || true)"
+          if [ ! -f _site/assets/logo-circle.jpg ] && [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
+          if [ ! -f _site/assets/logo-rectangle.jpg ] && [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
 
-          if [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
-          if [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
-
-          # Also support future direct asset files committed to the repo.
-          for f in logo-circle.jpg logo-circle.jpeg logo-circle.png; do
-            if [ -f "$f" ]; then cp "$f" _site/assets/logo-circle.jpg; fi
-          done
-          for f in logo-rectangle.jpg logo-rectangle.jpeg logo-rectangle.png; do
-            if [ -f "$f" ]; then cp "$f" _site/assets/logo-rectangle.jpg; fi
-          done
-
-          # Never fail the deployment because an optional brand image is absent.
-          # The page itself remains fully functional and GitHub Pages can publish it.
+          test -f _site/index.html
+          test -f _site/assets/logo-circle.jpg
+          test -f _site/assets/logo-rectangle.jpg
           find _site -maxdepth 2 -type f -print
 
       - name: Setup Pages
