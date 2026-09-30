@@ -21,7 +21,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build and permanently validate local Kartik Clarity logos
+      - name: Build and permanently validate local Kartik Clarity logos and period accuracy
         shell: bash
         run: |
           set -euo pipefail
@@ -30,10 +30,10 @@ jobs:
           rsync -a --exclude='.git' --exclude='_site' ./ _site/
           touch _site/.nojekyll
 
-          # Inject a final production visibility guard into the deployed HTML.
-          sed -i 's#</head>#<link rel="stylesheet" href="assets/logo-final.css">\\n</head>#' _site/index.html
+          sed -i 's#</head>#<link rel="stylesheet" href="assets/logo-final.css">\\n<script src="period-accuracy.js" defer></script>\\n</head>#' _site/index.html
 
           test -s _site/index.html
+          test -s _site/period-accuracy.js
           test -s _site/assets/kartik-clarity-logo.jpg
           test -s _site/assets/kartik-clarity-mark.jpg
           test -s _site/assets/logo-circle.svg
@@ -42,8 +42,12 @@ jobs:
 
           grep -q 'kartik-clarity-mark.jpg' _site/assets/logo-circle.svg
           grep -q 'kartik-clarity-logo.jpg' _site/assets/logo-rectangle.svg
+          grep -q 'period-accuracy.js' _site/index.html
+          grep -q 'q1:' _site/period-accuracy.js
+          grep -q 'q2:' _site/period-accuracy.js
+          grep -q 'q3:' _site/period-accuracy.js
+          grep -q 'fy:' _site/period-accuracy.js
 
-          # No external or parent-directory logo dependencies may reach production.
           if grep -RniE 'raw\.githubusercontent\.com|https?://[^"'"'"' ]*(logo|favicon)|href="\.\./logo-|src="\.\./logo-' _site --include='*.html' --include='*.js' --include='*.css' --include='*.svg'; then
             echo 'ERROR: external or broken logo dependency detected.'
             exit 1
@@ -53,6 +57,7 @@ jobs:
           test "$(xxd -p -l 2 _site/assets/kartik-clarity-mark.jpg)" = "ffd8"
 
           echo 'PERMANENT KARTIK CLARITY LOGO SYSTEM VERIFIED.'
+          echo 'Q1/Q2/Q3/FY PERIOD DATA SYSTEM VERIFIED.'
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
