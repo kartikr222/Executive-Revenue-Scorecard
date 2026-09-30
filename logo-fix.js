@@ -1,7 +1,7 @@
-/*! Kartik Clarity™ - permanent logo guard. Official self-contained artwork only. */
+/*! Kartik Clarity™ - permanent logo guard. Official local artwork only. */
 (function () {
   'use strict';
-  var BASE = '/Executive-Revenue-Scorecard/';
+  var BASE = '/Executive-Revenue-Scorecard/assets/';
   var LOGOS = {
     circle: BASE + 'logo-circle.svg',
     rectangle: BASE + 'logo-rectangle.svg'
