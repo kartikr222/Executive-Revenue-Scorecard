@@ -30,24 +30,27 @@ jobs:
           rsync -a --exclude='.git' --exclude='_site' ./ _site/
           touch _site/.nojekyll
 
-          sed -i 's#</head>#<link rel="stylesheet" href="assets/logo-final.css">\\n<script src="period-accuracy.js" defer></script>\\n</head>#' _site/index.html
+          # v2 is deliberately a new filename so browsers cannot reuse a cached broken logo stylesheet.
+          sed -i 's#</head>#<link rel="stylesheet" href="assets/logo-final-v2.css?v=final">\\n<script src="period-accuracy.js" defer></script>\\n</head>#' _site/index.html
 
           test -s _site/index.html
           test -s _site/period-accuracy.js
           test -s _site/assets/kartik-clarity-logo.jpg
           test -s _site/assets/kartik-clarity-mark.jpg
+          test -s _site/assets/logo-final-v2.css
           test -s _site/assets/logo-circle.svg
           test -s _site/assets/logo-rectangle.svg
-          test -s _site/assets/logo-final.css
 
           grep -q 'kartik-clarity-mark.jpg' _site/assets/logo-circle.svg
           grep -q 'kartik-clarity-logo.jpg' _site/assets/logo-rectangle.svg
           grep -q 'period-accuracy.js' _site/index.html
+          grep -q 'logo-final-v2.css' _site/index.html
           grep -q 'q1:' _site/period-accuracy.js
           grep -q 'q2:' _site/period-accuracy.js
           grep -q 'q3:' _site/period-accuracy.js
           grep -q 'fy:' _site/period-accuracy.js
 
+          # No production logo may depend on a remote host or parent-directory asset.
           if grep -RniE 'raw\.githubusercontent\.com|https?://[^"'"'"' ]*(logo|favicon)|href="\.\./logo-|src="\.\./logo-' _site --include='*.html' --include='*.js' --include='*.css' --include='*.svg'; then
             echo 'ERROR: external or broken logo dependency detected.'
             exit 1
