@@ -1,5 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc" preserveAspectRatio="xMidYMid meet">
 <title id="title">Kartik Clarity™ circle logo</title>
-<desc id="desc">Official Kartik Clarity circular logo.</desc>
-<image href="https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-circle.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="xMidYMid meet"/>
+<desc id="desc">Official Kartik Clarity circular brand mark.</desc>
+<circle cx="512" cy="512" r="462" fill="#07142d"/>
+<circle cx="512" cy="512" r="430" fill="#ffffff"/>
+<circle cx="512" cy="512" r="398" fill="#07142d"/>
+<text x="512" y="585" text-anchor="middle" fill="#ffffff" font-family="Arial,Helvetica,sans-serif" font-size="250" font-weight="800" letter-spacing="-20">KC</text>
+<circle cx="696" cy="332" r="30" fill="#2457c6"/>
 </svg>
