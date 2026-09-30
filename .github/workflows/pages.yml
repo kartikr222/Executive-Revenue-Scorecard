@@ -24,8 +24,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf _site /tmp/brand /tmp/brand-legacy
-          mkdir -p _site/assets /tmp/brand /tmp/brand-legacy
+          rm -rf _site /tmp/brand /tmp/brand-legacy /tmp/logo-fix
+          mkdir -p _site/assets /tmp/brand /tmp/brand-legacy /tmp/logo-fix
           cp index.html _site/index.html
           cp 404.html _site/404.html
           touch _site/.nojekyll
@@ -36,30 +36,43 @@ jobs:
           if [ -f assets/logo-circle.svg ]; then cp assets/logo-circle.svg _site/assets/logo-circle.svg; fi
           if [ -f assets/logo-rectangle.svg ]; then cp assets/logo-rectangle.svg _site/assets/logo-rectangle.svg; fi
 
-          # Prefer the user's supplied brand package over any older generated logo files.
-          if [ -f apply-brand-identity-assets.zip ]; then
-            unzip -oq apply-brand-identity-assets.zip -d /tmp/brand
-          fi
-          circle="$(find /tmp/brand -type f \( -iname 'logo-circle.jpg' -o -iname 'logo-circle.jpeg' -o -iname 'logo-circle.png' \) | head -n 1 || true)"
-          rect="$(find /tmp/brand -type f \( -iname 'logo-rectangle.jpg' -o -iname 'logo-rectangle.jpeg' -o -iname 'logo-rectangle.png' \) | head -n 1 || true)"
+          # Prefer the newest explicit logo-fix package, then the older brand package.
+          # This prevents stale/corrupt generated logo assets from winning during deployment.
+          if [ -f logo-fix.zip ]; then unzip -oq logo-fix.zip -d /tmp/logo-fix; fi
+          if [ -f apply-brand-identity-assets.zip ]; then unzip -oq apply-brand-identity-assets.zip -d /tmp/brand-legacy; fi
+
+          find_logo() {
+            local root="$1"; local kind="$2"
+            find "$root" -type f \( -iname "*${kind}*.jpg" -o -iname "*${kind}*.jpeg" -o -iname "*${kind}*.png" \) -print -quit
+          }
+
+          circle="$(find_logo /tmp/logo-fix circle || true)"
+          rect="$(find_logo /tmp/logo-fix rectangle || true)"
+          if [ -z "${circle}" ]; then circle="$(find_logo /tmp/brand-legacy circle || true)"; fi
+          if [ -z "${rect}" ]; then rect="$(find_logo /tmp/brand-legacy rectangle || true)"; fi
+
           if [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
           if [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
 
+          # Fail the build rather than publish a page with missing brand assets.
           test -f _site/index.html
           test -f _site/404.html
+          test -s _site/assets/logo-circle.jpg
+          test -s _site/assets/logo-rectangle.jpg
           test -f _site/assets/logo-circle.svg
           test -f _site/assets/logo-rectangle.svg
-          test -f _site/assets/logo-circle.jpg
-          test -f _site/assets/logo-rectangle.jpg
-          ! grep -q 'src="assets/logo-circle.jpg"\|src="assets/logo-rectangle.jpg"' _site/index.html
-          grep -q 'assets/logo-circle.svg' _site/index.html
-          grep -q 'assets/logo-rectangle.svg' _site/index.html
-          grep -q 'Build your executive report' _site/index.html
           grep -q 'Find a tool' _site/index.html
+          grep -q 'Build your executive report' _site/index.html
           grep -q 'Print / Save PDF' _site/index.html
           grep -q 'Reporting year' _site/index.html
           grep -q 'Ctrl K' _site/index.html
+
+          # Verify the actual binary files are real JPEGs before publishing.
+          test "$(xxd -p -l 2 _site/assets/logo-circle.jpg)" = "ffd8"
+          test "$(xxd -p -l 2 _site/assets/logo-rectangle.jpg)" = "ffd8"
+
           find _site -maxdepth 2 -type f -print
+          file _site/assets/logo-circle.jpg _site/assets/logo-rectangle.jpg
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact
