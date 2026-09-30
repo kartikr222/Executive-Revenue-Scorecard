@@ -1,6 +1,68 @@
-/* FINAL KARTIK CLARITY BRAND OVERRIDE - direct local artwork, independent of SVG src. */
-.brand img,.profile img,.user img,.hero-brand img,.footer img{display:block!important;visibility:visible!important;opacity:1!important;filter:none!important;mix-blend-mode:normal!important;mask:none!important;-webkit-mask:none!important;transform:none!important;clip-path:none!important;object-fit:contain!important;background-image:none!important;background-color:transparent!important;font-size:0!important;color:transparent!important;}
-.brand img,.profile img,.user img{content:url('./kartik-clarity-mark.jpg')!important;}
-.hero-brand img,.footer img{content:url('./kartik-clarity-logo.jpg')!important;}
-.brand,.profile,.user,.hero-brand,.footer{isolation:isolate!important;}
-.brand::before,.brand::after,.profile::before,.profile::after,.user::before,.user::after,.hero-brand::before,.hero-brand::after,.footer::before,.footer::after{display:none!important;content:none!important;background:none!important;}
+/* KARTIK CLARITY - FINAL STATIC BRAND VISIBILITY LOCK
+   Logo-only layer. No observers, timers, polling, animation or DOM mutation.
+   Uses same-origin GitHub Pages JPEG assets directly on the logo containers.
+   This intentionally does not modify dashboard, navigation, period or performance logic. */
+
+.brand,
+.profile,
+.user,
+.hero-brand,
+.footer {
+  isolation: isolate !important;
+}
+
+.brand {
+  background-image: url('/Executive-Revenue-Scorecard/assets/kartik-clarity-logo.jpg') !important;
+  background-repeat: no-repeat !important;
+  background-position: left center !important;
+  background-size: contain !important;
+}
+
+.hero-brand {
+  background-image: url('/Executive-Revenue-Scorecard/assets/kartik-clarity-logo.jpg') !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: contain !important;
+}
+
+.footer {
+  background-image: url('/Executive-Revenue-Scorecard/assets/kartik-clarity-logo.jpg') !important;
+  background-repeat: no-repeat !important;
+  background-position: left center !important;
+  background-size: 130px auto !important;
+}
+
+.profile,
+.user {
+  background-image: url('/Executive-Revenue-Scorecard/assets/kartik-clarity-mark.jpg') !important;
+  background-repeat: no-repeat !important;
+  background-position: left center !important;
+  background-size: 40px 40px !important;
+}
+
+.brand img,
+.profile img,
+.user img,
+.hero-brand img,
+.footer img {
+  display: none !important;
+}
+
+.brand::before,
+.brand::after,
+.profile::before,
+.profile::after,
+.user::before,
+.user::after,
+.hero-brand::before,
+.hero-brand::after,
+.footer::before,
+.footer::after {
+  display: none !important;
+  content: none !important;
+  background: none !important;
+}
+
+.hero-brand span {
+  z-index: 2 !important;
+}
