@@ -20,19 +20,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Prepare static site
+      - name: Prepare final static product
         shell: bash
         run: |
           set -euo pipefail
           rm -rf _site /tmp/brand
           mkdir -p _site/assets
           cp index.html _site/index.html
-          cp final-polish.css _site/final-polish.css
-          cp final-polish.js _site/final-polish.js
-          cp report-builder.css _site/report-builder.css
-          cp report-builder.js _site/report-builder.js
-          cp universal-product-layer.css _site/universal-product-layer.css
-          cp universal-product-layer.js _site/universal-product-layer.js
+          cp 404.html _site/404.html
           touch _site/.nojekyll
           if [ -f assets/logo-circle.jpg ]; then cp assets/logo-circle.jpg _site/assets/logo-circle.jpg; fi
           if [ -f assets/logo-rectangle.jpg ]; then cp assets/logo-rectangle.jpg _site/assets/logo-rectangle.jpg; fi
@@ -43,23 +38,20 @@ jobs:
           rect="$(find /tmp/brand -type f \( -iname 'logo-rectangle.jpg' -o -iname 'logo-rectangle.jpeg' -o -iname 'logo-rectangle.png' \) | head -n 1 || true)"
           if [ ! -f _site/assets/logo-circle.jpg ] && [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
           if [ ! -f _site/assets/logo-rectangle.jpg ] && [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
+          test -f _site/index.html
+          test -f _site/404.html
           test -f _site/assets/logo-circle.svg
           test -f _site/assets/logo-rectangle.svg
           test -f _site/assets/logo-circle.jpg
           test -f _site/assets/logo-rectangle.jpg
-          sed -i 's#assets/logo-circle\.jpg#assets/logo-circle.svg#g; s#assets/logo-rectangle\.jpg#assets/logo-rectangle.svg#g' _site/index.html
-          sed -i 's#</head>#<link rel="stylesheet" href="final-polish.css"><link rel="stylesheet" href="report-builder.css"><link rel="stylesheet" href="universal-product-layer.css"></head>#' _site/index.html
-          sed -i 's#</body>#<script src="final-polish.js" defer></script><script src="report-builder.js" defer></script><script src="universal-product-layer.js" defer></script></body>#' _site/index.html
           ! grep -q 'src="assets/logo-circle.jpg"\|src="assets/logo-rectangle.jpg"' _site/index.html
           grep -q 'assets/logo-circle.svg' _site/index.html
           grep -q 'assets/logo-rectangle.svg' _site/index.html
-          grep -q 'Kartik Clarity' _site/universal-product-layer.js
-          grep -q 'Reporting year' _site/report-builder.js
-          test -f _site/index.html
-          test -f _site/report-builder.js
-          test -f _site/universal-product-layer.js
-          test -f _site/assets/logo-circle.svg
-          test -f _site/assets/logo-rectangle.svg
+          grep -q 'Build your executive report' _site/index.html
+          grep -q 'Find a tool' _site/index.html
+          grep -q 'Print / Save PDF' _site/index.html
+          grep -q 'Reporting year' _site/index.html
+          grep -q 'Ctrl K' _site/index.html
           find _site -maxdepth 2 -type f -print
       - name: Setup Pages
         uses: actions/configure-pages@v5
