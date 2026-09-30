@@ -1,1 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1376 692" role="img" aria-labelledby="title desc" preserveAspectRatio="xMidYMid meet"><title id="title">Kartik Clarity™ Revenue Leak Detection</title><desc id="desc">Complete supplied Kartik Clarity rectangle artwork, shown without cropping or added overlays.</desc><image href="./logo-rectangle.jpg" x="0" y="0" width="1376" height="692" preserveAspectRatio="xMidYMid meet"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1376 692" role="img" aria-labelledby="title desc" preserveAspectRatio="xMidYMid meet">
+<title id="title">Kartik Clarity™ rectangle logo</title>
+<desc id="desc">Official supplied Kartik Clarity rectangle logo artwork.</desc>
+<image href="logo-rectangle.jpg" xlink:href="logo-rectangle.jpg" x="0" y="0" width="1376" height="692" preserveAspectRatio="xMidYMid meet"/>
+</svg>
