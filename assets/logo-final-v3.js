@@ -1,61 +1,51 @@
-/* Kartik Clarity permanent logo renderer - safe, idempotent, no observer loop. */
+/* Kartik Clarity logo renderer - isolated, lightweight, no observers, no loops. */
 (function () {
   'use strict';
 
-  var base = new URL('./', document.baseURI).href;
-  var mark = base + 'assets/kartik-clarity-mark.jpg';
-  var wordmark = base + 'assets/kartik-clarity-logo.jpg';
-  var repairing = false;
+  var root = document.querySelector('base');
+  var base = root && root.href ? root.href : document.baseURI;
+  var mark = new URL('assets/kartik-clarity-mark.jpg', base).href;
+  var wordmark = new URL('assets/kartik-clarity-logo.jpg', base).href;
 
-  function setIfNeeded(img, src) {
+  function apply(img, src) {
     if (!img) return;
-    if (img.getAttribute('src') !== src) img.setAttribute('src', src);
-    if (img.hasAttribute('srcset')) img.removeAttribute('srcset');
-    if (img.hasAttribute('sizes')) img.removeAttribute('sizes');
-    if (img.getAttribute('decoding') !== 'sync') img.setAttribute('decoding', 'sync');
-    if (img.getAttribute('loading') !== 'eager') img.setAttribute('loading', 'eager');
-    if (img.style.display !== 'block') img.style.setProperty('display', 'block', 'important');
-    if (img.style.visibility !== 'visible') img.style.setProperty('visibility', 'visible', 'important');
-    if (img.style.opacity !== '1') img.style.setProperty('opacity', '1', 'important');
+    img.removeAttribute('srcset');
+    img.removeAttribute('sizes');
+    if (img.getAttribute('src') !== src) img.src = src;
+    img.loading = 'eager';
+    img.decoding = 'async';
+    img.style.setProperty('display', 'block', 'important');
+    img.style.setProperty('visibility', 'visible', 'important');
+    img.style.setProperty('opacity', '1', 'important');
   }
 
   function repair() {
-    if (repairing) return;
-    repairing = true;
-    try {
-      var selectors = [
-        '.brand img', '.profile img', '.user img', '.hero-brand img', '.footer img',
-        'img[src*="logo-circle"]', 'img[src*="logo-rectangle"]',
-        'img[src*="logo.jpg"]', 'img[src*="logo.svg"]'
-      ];
-      var seen = [];
-      selectors.forEach(function (selector) {
-        document.querySelectorAll(selector).forEach(function (img) {
-          if (seen.indexOf(img) !== -1) return;
-          seen.push(img);
-          var isWordmark = img.closest('.hero-brand, .footer') !== null;
-          setIfNeeded(img, isWordmark ? wordmark : mark);
-        });
-      });
-      var icon = document.querySelector('link[rel="icon"]');
-      if (icon && icon.href !== mark) icon.href = mark;
-    } finally {
-      repairing = false;
-    }
-  }
+    var selectors = [
+      '.brand img', '.profile img', '.user img', '.hero-brand img', '.footer img',
+      'img[src*="logo-circle"]', 'img[src*="logo-rectangle"]',
+      'img[src*="logo.jpg"]', 'img[src*="logo.svg"]'
+    ];
 
-  function boot() {
-    repair();
-    /* Observe only newly inserted/removed nodes. Do NOT observe src/style/class changes: repair() itself changes those attributes. */
-    new MutationObserver(function () { repair(); }).observe(document.body || document.documentElement, {
-      subtree: true,
-      childList: true
+    var seen = new Set();
+    selectors.forEach(function (selector) {
+      document.querySelectorAll(selector).forEach(function (img) {
+        if (seen.has(img)) return;
+        seen.add(img);
+        var word = !!img.closest('.hero-brand, .footer');
+        apply(img, word ? wordmark : mark);
+      });
     });
+
+    var icon = document.querySelector('link[rel="icon"]');
+    if (icon) icon.href = mark;
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, { once: true });
+    document.addEventListener('DOMContentLoaded', repair, { once: true });
   } else {
-    boot();
+    repair();
   }
+
+  /* One additional pass after all normal page scripts have initialized. */
+  window.addEventListener('load', repair, { once: true, passive: true });
 })();
