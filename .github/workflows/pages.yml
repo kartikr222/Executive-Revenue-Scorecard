@@ -54,13 +54,14 @@ jobs:
           if [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
           if [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
 
-          # The page uses direct raster fallbacks for maximum browser reliability.
-          # The SVG wrappers remain available as optional vector assets, but are not
-          # allowed to be the only visible logo path.
+          # Make the canonical raster assets the actual first-paint logo sources.
+          # This removes dependence on nested-image SVG rendering on GitHub Pages.
           python3 - <<'PY'
           from pathlib import Path
           p=Path('_site/index.html')
           s=p.read_text(encoding='utf-8')
+          s=s.replace('assets/logo-circle.svg','assets/logo-circle.jpg')
+          s=s.replace('assets/logo-rectangle.svg','assets/logo-rectangle.jpg')
           fix='''\n<script>\n(()=>{const c='assets/logo-circle.jpg',r='assets/logo-rectangle.jpg';const apply=()=>{document.querySelectorAll('img').forEach(i=>{const s=(i.getAttribute('src')||'').toLowerCase(),a=(i.getAttribute('alt')||'').toLowerCase(),p=(i.parentElement?.className||'').toString().toLowerCase();if(/logo-rectangle|hero-brand|footer/.test(s+' '+a+' '+p))i.src=r;else if(/logo-circle|profile|avatar|account/.test(s+' '+a+' '+p))i.src=c;i.style.objectFit='contain';i.style.objectPosition='center center';i.style.display='block';i.decoding='async'});const f=document.querySelector('link[rel="icon"]');if(f)f.href=c};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply);else apply();setTimeout(apply,250);setTimeout(apply,1000)} )();\n</script>\n<script src="final-polish.js"></script>\n'''
           if 'src="final-polish.js"' not in s:
               s=s.replace('</body>',fix+'</body>')
