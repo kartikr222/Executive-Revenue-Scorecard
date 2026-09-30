@@ -24,20 +24,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf _site /tmp/brand
-          mkdir -p _site/assets
+          rm -rf _site /tmp/brand /tmp/brand-legacy
+          mkdir -p _site/assets /tmp/brand /tmp/brand-legacy
           cp index.html _site/index.html
           cp 404.html _site/404.html
           touch _site/.nojekyll
+
+          # Start with repository fallbacks.
           if [ -f assets/logo-circle.jpg ]; then cp assets/logo-circle.jpg _site/assets/logo-circle.jpg; fi
           if [ -f assets/logo-rectangle.jpg ]; then cp assets/logo-rectangle.jpg _site/assets/logo-rectangle.jpg; fi
           if [ -f assets/logo-circle.svg ]; then cp assets/logo-circle.svg _site/assets/logo-circle.svg; fi
           if [ -f assets/logo-rectangle.svg ]; then cp assets/logo-rectangle.svg _site/assets/logo-rectangle.svg; fi
-          if [ -f apply-brand-identity-assets.zip ]; then mkdir -p /tmp/brand; unzip -oq apply-brand-identity-assets.zip -d /tmp/brand; fi
+
+          # Prefer the user's supplied brand package over any older generated logo files.
+          if [ -f apply-brand-identity-assets.zip ]; then
+            unzip -oq apply-brand-identity-assets.zip -d /tmp/brand
+          fi
           circle="$(find /tmp/brand -type f \( -iname 'logo-circle.jpg' -o -iname 'logo-circle.jpeg' -o -iname 'logo-circle.png' \) | head -n 1 || true)"
           rect="$(find /tmp/brand -type f \( -iname 'logo-rectangle.jpg' -o -iname 'logo-rectangle.jpeg' -o -iname 'logo-rectangle.png' \) | head -n 1 || true)"
-          if [ ! -f _site/assets/logo-circle.jpg ] && [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
-          if [ ! -f _site/assets/logo-rectangle.jpg ] && [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
+          if [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
+          if [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
+
           test -f _site/index.html
           test -f _site/404.html
           test -f _site/assets/logo-circle.svg
