@@ -20,29 +20,90 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Prepare static site
+
+      - name: Prepare static site and install supplied logos
         shell: bash
         run: |
-          set -e
-          rm -rf _site
-          mkdir -p _site/assets
+          set -euo pipefail
+          rm -rf _site brand-assets
+          mkdir -p _site/assets brand-assets
           cp index.html _site/index.html
           cp 404.html _site/404.html
-          cp final-polish.js _site/final-polish.js
-          cp assets/logo-circle.jpg _site/assets/logo-circle.jpg
-          cp assets/logo-rectangle.jpg _site/assets/logo-rectangle.jpg
           touch _site/.nojekyll
-          sed -i 's#assets/logo-circle\.svg#assets/logo-circle.jpg#g' _site/index.html
-          sed -i 's#assets/logo-rectangle\.svg#assets/logo-rectangle.jpg#g' _site/index.html
-          echo "Circle logo:"; file _site/assets/logo-circle.jpg
-          echo "Rectangle logo:"; file _site/assets/logo-rectangle.jpg
-          ls -lh _site/assets/logo-circle.jpg _site/assets/logo-rectangle.jpg
+
+          # The uploaded ZIP is the source of truth. Extract every available brand package.
+          for z in logo-fix.zip apply-brand-identity-assets.zip; do
+            if [ -f "$z" ]; then
+              mkdir -p "brand-assets/${z%.zip}"
+              unzip -o -q "$z" -d "brand-assets/${z%.zip}"
+            fi
+          done
+
+          # Collect actual image files from the supplied packages and the repository.
+          mapfile -t IMAGES < <(find brand-assets assets -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | sort -u)
+          CIRCLE=""
+          RECT=""
+          for f in "${IMAGES[@]}"; do
+            dims=$(identify -format '%w %h' "$f" 2>/dev/null || true)
+            [ -n "$dims" ] || continue
+            w=${dims% *}; h=${dims#* }
+            if [ -z "$CIRCLE" ] && [ "$w" -gt 0 ] && [ "$h" -gt 0 ]; then
+              # Square-ish artwork is the supplied circular mark.
+              diff=$(( w > h ? w-h : h-w ))
+              max=$(( w > h ? w : h ))
+              if [ $((diff*100)) -le $((max*12)) ]; then CIRCLE="$f"; fi
+            fi
+            if [ -z "$RECT" ] && [ "$w" -gt 0 ] && [ "$h" -gt 0 ]; then
+              # Wide artwork is the supplied rectangle mark.
+              if [ $((w*100)) -ge $((h*135)) ]; then RECT="$f"; fi
+            fi
+          done
+          [ -n "$CIRCLE" ] || { echo 'ERROR: supplied circle logo not found'; exit 1; }
+          [ -n "$RECT" ] || { echo 'ERROR: supplied rectangle logo not found'; exit 1; }
+
+          # Convert to PNG for deterministic GitHub Pages/browser rendering.
+          # This preserves the supplied artwork while eliminating SVG/nested-image issues.
+          convert "$CIRCLE" -auto-orient -strip -define png:compression-level=9 _site/assets/logo-circle.png
+          convert "$RECT" -auto-orient -strip -define png:compression-level=9 _site/assets/logo-rectangle.png
+
+          # Also retain direct JPG fallbacks when they exist.
+          cp assets/logo-circle.jpg _site/assets/logo-circle.jpg 2>/dev/null || true
+          cp assets/logo-rectangle.jpg _site/assets/logo-rectangle.jpg 2>/dev/null || true
+
+          # Force every logo reference in the deployed HTML to use the generated PNGs.
+          sed -i 's#assets/logo-circle\.svg#assets/logo-circle.png#g; s#assets/logo-circle\.jpg#assets/logo-circle.png#g; s#assets/logo-rectangle\.svg#assets/logo-rectangle.png#g; s#assets/logo-rectangle\.jpg#assets/logo-rectangle.png#g' _site/index.html
+
+          # Cache-bust the exact deployed assets and add a final browser-level fallback.
+          sed -i 's#assets/logo-circle\.png#assets/logo-circle.png?v=20260930#g; s#assets/logo-rectangle\.png#assets/logo-rectangle.png?v=20260930#g' _site/index.html
+          cat >> _site/index.html <<'EOF'
+<script>
+(()=>{
+  const root='https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/';
+  const swap=()=>document.querySelectorAll('img[src*="logo-circle"],img[src*="logo-rectangle"]').forEach(img=>{
+    const circle=img.src.toLowerCase().includes('logo-circle');
+    const file=circle?'logo-circle.png':'logo-rectangle.png';
+    const target=root+file+'?v=20260930';
+    if(img.src!==target){img.onerror=null;img.src=target;}
+    img.style.objectFit='contain';img.style.objectPosition='center';img.style.visibility='visible';img.style.opacity='1';
+  });
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',swap);else swap();
+})();
+</script>
+EOF
+
+          echo '--- FINAL LOGO ASSETS ---'
+          identify _site/assets/logo-circle.png _site/assets/logo-rectangle.png
+          ls -lh _site/assets/logo-circle.png _site/assets/logo-rectangle.png
+          grep -o 'assets/logo-[a-z-]*\.png[^" ]*' _site/index.html | sort -u
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
   deploy:
     environment:
       name: github-pages
