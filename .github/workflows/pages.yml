@@ -27,21 +27,16 @@ jobs:
           set -euo pipefail
           rm -rf _site
           mkdir -p _site
-
-          # This is a static GitHub Pages site. Deploy the repository files
-          # exactly as committed. No logo rewriting, URL rewriting, image
-          # conversion, or JavaScript asset generation is allowed here.
           rsync -a --exclude='.git' --exclude='_site' ./ _site/
           touch _site/.nojekyll
 
-          # The live site must contain the canonical Kartik Clarity artwork.
           test -s _site/index.html
           test -s _site/assets/logo-circle.svg
           test -s _site/assets/logo-rectangle.svg
-          grep -q 'data:image/jpeg;base64,' _site/assets/logo-circle.svg
-          grep -q 'data:image/jpeg;base64,' _site/assets/logo-rectangle.svg
+          grep -q 'raw.githubusercontent.com/kartikr222/Executive-Revenue-Scorecard/main/logo-circle.jpg' _site/assets/logo-circle.svg
+          grep -q 'raw.githubusercontent.com/kartikr222/Executive-Revenue-Scorecard/main/logo-rectangle.jpg' _site/assets/logo-rectangle.svg
 
-          echo 'Kartik Clarity logos verified in final Pages artifact.'
+          echo 'Kartik Clarity official logos verified in final Pages artifact.'
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
