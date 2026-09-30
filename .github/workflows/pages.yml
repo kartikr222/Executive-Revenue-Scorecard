@@ -21,7 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build Pages artifact
+      - name: Build Pages artifact with supplied logos
         shell: bash
         run: |
           set -euo pipefail
@@ -31,42 +31,63 @@ jobs:
           cp 404.html _site/404.html
           touch _site/.nojekyll
 
-          # Extract the supplied logo package(s). The uploaded artwork is the source of truth.
+          # Extract the user's uploaded logo packages. Never depend on SVG wrappers for the visible artwork.
           for z in logo-fix.zip apply-brand-identity-assets.zip; do
             if [ -f "$z" ]; then unzip -oq "$z" -d brand-assets || true; fi
           done
 
-          # Locate the actual supplied images. If filenames are opaque, classify them by aspect ratio.
           CIRCLE=""
           RECT=""
-          while IFS= read -r f; do
-            dims="$(identify -format '%w %h' "$f" 2>/dev/null || true)"
-            [ -n "$dims" ] || continue
-            w="${dims% *}"; h="${dims#* }"
-            [ "$w" -gt 0 ] && [ "$h" -gt 0 ] || continue
-            diff=$(( w > h ? w-h : h-w )); max=$(( w > h ? w : h ))
-            if [ -z "$CIRCLE" ] && [ $((diff*100)) -le $((max*12)) ]; then CIRCLE="$f"; fi
-            if [ -z "$RECT" ] && [ $((w*100)) -ge $((h*135)) ]; then RECT="$f"; fi
-          done < <(find brand-assets -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | sort -u)
 
+          # Prefer raster artwork from the supplied ZIPs. Filename match first.
+          CIRCLE="$(find brand-assets -type f \( -iname '*circle*.png' -o -iname '*circle*.jpg' -o -iname '*circle*.jpeg' -o -iname '*circle*.webp' \) | head -n 1 || true)"
+          RECT="$(find brand-assets -type f \( -iname '*rectangle*.png' -o -iname '*rectangle*.jpg' -o -iname '*rectangle*.jpeg' -o -iname '*rectangle*.webp' -o -iname '*banner*.png' -o -iname '*banner*.jpg' -o -iname '*banner*.jpeg' \) | head -n 1 || true)"
+
+          # If filenames are opaque, classify supplied raster files by dimensions.
+          if [ -z "$CIRCLE" ] || [ -z "$RECT" ]; then
+            while IFS= read -r f; do
+              dims="$(identify -format '%w %h' "$f" 2>/dev/null || true)"
+              [ -n "$dims" ] || continue
+              w="${dims% *}"; h="${dims#* }"
+              [ "$w" -gt 0 ] && [ "$h" -gt 0 ] || continue
+              diff=$(( w > h ? w-h : h-w )); max=$(( w > h ? w : h ))
+              if [ -z "$CIRCLE" ] && [ $((diff*100)) -le $((max*12)) ]; then CIRCLE="$f"; fi
+              if [ -z "$RECT" ] && [ $((w*100)) -ge $((h*135)) ]; then RECT="$f"; fi
+            done < <(find brand-assets -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | sort -u)
+          fi
+
+          # If the supplied package contains true SVG artwork, use it only when no raster source exists.
+          if [ -z "$CIRCLE" ]; then CIRCLE="$(find brand-assets -type f -iname '*circle*.svg' | head -n 1 || true)"; fi
+          if [ -z "$RECT" ]; then RECT="$(find brand-assets -type f \( -iname '*rectangle*.svg' -o -iname '*banner*.svg' \) | head -n 1 || true)"; fi
+
+          # Final repository fallbacks guarantee the deployment never ships a missing logo.
           if [ -z "$CIRCLE" ]; then CIRCLE="assets/logo-circle.jpg"; fi
           if [ -z "$RECT" ]; then RECT="assets/logo-rectangle.jpg"; fi
-          echo "Circle source: $CIRCLE"
-          echo "Rectangle source: $RECT"
 
-          # Normalize both supplied logos to PNG. PNG is the visible browser source; no SVG nesting is involved.
-          convert "$CIRCLE" -auto-orient -strip _site/assets/logo-circle.png
-          convert "$RECT" -auto-orient -strip _site/assets/logo-rectangle.png
+          circle_ext="${CIRCLE##*.}"; circle_ext="${circle_ext,,}"
+          rect_ext="${RECT##*.}"; rect_ext="${rect_ext,,}"
+          case "$circle_ext" in png|jpg|jpeg|webp|svg) ;; *) echo 'ERROR: unsupported circle logo format'; exit 1;; esac
+          case "$rect_ext" in png|jpg|jpeg|webp|svg) ;; *) echo 'ERROR: unsupported rectangle logo format'; exit 1;; esac
 
-          # Every logo in the page points to the direct PNG assets.
-          sed -i 's#assets/logo-circle\.svg#assets/logo-circle.png#g; s#assets/logo-circle\.jpg#assets/logo-circle.png#g; s#assets/logo-rectangle\.svg#assets/logo-rectangle.png#g; s#assets/logo-rectangle\.jpg#assets/logo-rectangle.png#g' _site/index.html
-          sed -i 's#assets/logo-circle\.png#https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-circle.png?v=final#g; s#assets/logo-rectangle\.png#https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-rectangle.png?v=final#g' _site/index.html
+          echo "FINAL CIRCLE SOURCE: $CIRCLE"
+          echo "FINAL RECTANGLE SOURCE: $RECT"
+          echo "FINAL CIRCLE FORMAT: $circle_ext"
+          echo "FINAL RECTANGLE FORMAT: $rect_ext"
 
-          echo '--- DEPLOYED LOGOS ---'
-          identify _site/assets/logo-circle.png
-          identify _site/assets/logo-rectangle.png
-          test -s _site/assets/logo-circle.png
-          test -s _site/assets/logo-rectangle.png
+          cp "$CIRCLE" "_site/assets/logo-circle.$circle_ext"
+          cp "$RECT" "_site/assets/logo-rectangle.$rect_ext"
+
+          # Point every logo placeholder at the exact supplied source file.
+          sed -i -E "s#assets/logo-circle\.(svg|jpg|jpeg|png|webp)#assets/logo-circle.${circle_ext}#g; s#assets/logo-rectangle\.(svg|jpg|jpeg|png|webp)#assets/logo-rectangle.${rect_ext}#g" _site/index.html
+
+          # Absolute Pages URL + cache-busting removes every relative-path/cache ambiguity.
+          sed -i "s#assets/logo-circle.${circle_ext}#https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-circle.${circle_ext}?v=final#g; s#assets/logo-rectangle.${rect_ext}#https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-rectangle.${rect_ext}?v=final#g" _site/index.html
+
+          echo '--- FINAL DEPLOYED LOGO FILES ---'
+          ls -lh _site/assets/logo-circle.* _site/assets/logo-rectangle.*
+          file _site/assets/logo-circle.* _site/assets/logo-rectangle.*
+          test -s "_site/assets/logo-circle.$circle_ext"
+          test -s "_site/assets/logo-rectangle.$rect_ext"
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
