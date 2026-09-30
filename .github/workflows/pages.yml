@@ -31,44 +31,57 @@ jobs:
           cp final-polish.js _site/final-polish.js
           touch _site/.nojekyll
 
-          # Start with repository fallbacks.
-          if [ -f assets/logo-circle.jpg ]; then cp assets/logo-circle.jpg _site/assets/logo-circle.jpg; fi
-          if [ -f assets/logo-rectangle.jpg ]; then cp assets/logo-rectangle.jpg _site/assets/logo-rectangle.jpg; fi
+          # The supplied, committed logo files are authoritative.
+          # ZIP packages are fallback sources only; they must never overwrite
+          # the verified repository logo assets.
+          circle_source=""
+          rect_source=""
+          if [ -s assets/logo-circle.jpg ]; then
+            cp assets/logo-circle.jpg _site/assets/logo-circle.jpg
+            circle_source="repository assets/logo-circle.jpg"
+          fi
+          if [ -s assets/logo-rectangle.jpg ]; then
+            cp assets/logo-rectangle.jpg _site/assets/logo-rectangle.jpg
+            rect_source="repository assets/logo-rectangle.jpg"
+          fi
           if [ -f assets/logo-circle.svg ]; then cp assets/logo-circle.svg _site/assets/logo-circle.svg; fi
           if [ -f assets/logo-rectangle.svg ]; then cp assets/logo-rectangle.svg _site/assets/logo-rectangle.svg; fi
 
-          # Prefer the newest explicit logo-fix package, then the older brand package.
-          if [ -f logo-fix.zip ]; then unzip -oq logo-fix.zip -d /tmp/logo-fix; fi
-          if [ -f apply-brand-identity-assets.zip ]; then unzip -oq apply-brand-identity-assets.zip -d /tmp/brand-legacy; fi
+          # Only use uploaded ZIP packages when a canonical repository asset is absent.
+          if [ -z "$circle_source" ] && [ -f logo-fix.zip ]; then unzip -oq logo-fix.zip -d /tmp/logo-fix; fi
+          if [ -z "$rect_source" ] && [ -f logo-fix.zip ]; then unzip -oq logo-fix.zip -d /tmp/logo-fix; fi
+          if [ -z "$circle_source" ] && [ -f apply-brand-identity-assets.zip ]; then unzip -oq apply-brand-identity-assets.zip -d /tmp/brand-legacy; fi
+          if [ -z "$rect_source" ] && [ -f apply-brand-identity-assets.zip ]; then unzip -oq apply-brand-identity-assets.zip -d /tmp/brand-legacy; fi
 
           find_logo() {
             local root="$1"; local kind="$2"
             find "$root" -type f \( -iname "*${kind}*.jpg" -o -iname "*${kind}*.jpeg" -o -iname "*${kind}*.png" \) -print -quit
           }
 
-          circle="$(find_logo /tmp/logo-fix circle || true)"
-          rect="$(find_logo /tmp/logo-fix rectangle || true)"
-          if [ -z "${circle}" ]; then circle="$(find_logo /tmp/brand-legacy circle || true)"; fi
-          if [ -z "${rect}" ]; then rect="$(find_logo /tmp/brand-legacy rectangle || true)"; fi
+          if [ -z "$circle_source" ]; then
+            circle="$(find_logo /tmp/logo-fix circle || true)"
+            if [ -z "$circle" ]; then circle="$(find_logo /tmp/brand-legacy circle || true)"; fi
+            if [ -n "$circle" ]; then cp "$circle" _site/assets/logo-circle.jpg; circle_source="ZIP fallback: $circle"; fi
+          fi
+          if [ -z "$rect_source" ]; then
+            rect="$(find_logo /tmp/logo-fix rectangle || true)"
+            if [ -z "$rect" ]; then rect="$(find_logo /tmp/brand-legacy rectangle || true)"; fi
+            if [ -n "$rect" ]; then cp "$rect" _site/assets/logo-rectangle.jpg; rect_source="ZIP fallback: $rect"; fi
+          fi
 
-          if [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
-          if [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
-
-          # Make the canonical raster assets the actual first-paint logo sources.
-          # This removes dependence on nested-image SVG rendering on GitHub Pages.
+          # Use direct raster sources for first-paint reliability on GitHub Pages.
           python3 - <<'PY'
           from pathlib import Path
           p=Path('_site/index.html')
           s=p.read_text(encoding='utf-8')
           s=s.replace('assets/logo-circle.svg','assets/logo-circle.jpg')
           s=s.replace('assets/logo-rectangle.svg','assets/logo-rectangle.jpg')
-          fix='''\n<script>\n(()=>{const c='assets/logo-circle.jpg',r='assets/logo-rectangle.jpg';const apply=()=>{document.querySelectorAll('img').forEach(i=>{const s=(i.getAttribute('src')||'').toLowerCase(),a=(i.getAttribute('alt')||'').toLowerCase(),p=(i.parentElement?.className||'').toString().toLowerCase();if(/logo-rectangle|hero-brand|footer/.test(s+' '+a+' '+p))i.src=r;else if(/logo-circle|profile|avatar|account/.test(s+' '+a+' '+p))i.src=c;i.style.objectFit='contain';i.style.objectPosition='center center';i.style.display='block';i.decoding='async'});const f=document.querySelector('link[rel="icon"]');if(f)f.href=c};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply);else apply();setTimeout(apply,250);setTimeout(apply,1000)} )();\n</script>\n<script src="final-polish.js"></script>\n'''
+          fix='''\n<script>\n(()=>{const c='assets/logo-circle.jpg',r='assets/logo-rectangle.jpg';const apply=()=>{document.querySelectorAll('img').forEach(i=>{const s=(i.getAttribute('src')||'').toLowerCase(),a=(i.getAttribute('alt')||'').toLowerCase(),p=(i.parentElement?.className||'').toString().toLowerCase();if(/logo-rectangle|hero-brand|footer/.test(s+' '+a+' '+p))i.src=r;else if(/logo-circle|profile|avatar|account/.test(s+' '+a+' '+p))i.src=c;i.style.objectFit='contain';i.style.objectPosition='center center';i.style.display='block';i.decoding='async'});const f=document.querySelector('link[rel="icon"]');if(f)f.href=c};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply);else apply();setTimeout(apply,250);setTimeout(apply,1000)})();\n</script>\n<script src="final-polish.js"></script>\n'''
           if 'src="final-polish.js"' not in s:
               s=s.replace('</body>',fix+'</body>')
           p.write_text(s,encoding='utf-8')
           PY
 
-          # Fail the build rather than publish missing brand assets.
           test -f _site/index.html
           test -f _site/404.html
           test -f _site/final-polish.js
@@ -78,13 +91,12 @@ jobs:
           grep -q 'assets/logo-circle.jpg' _site/index.html
           grep -q 'assets/logo-rectangle.jpg' _site/index.html
 
-          # Verify the canonical raster assets are real JPEGs.
           circle_type="$(file -b _site/assets/logo-circle.jpg)"
           rect_type="$(file -b _site/assets/logo-rectangle.jpg)"
           echo "Circle logo: ${circle_type}"
           echo "Rectangle logo: ${rect_type}"
-          echo "Selected circle source: ${circle:-repository fallback}"
-          echo "Selected rectangle source: ${rect:-repository fallback}"
+          echo "Selected circle source: ${circle_source:-none}"
+          echo "Selected rectangle source: ${rect_source:-none}"
           echo "$circle_type" | grep -qi 'jpeg' || { echo 'ERROR: circle logo is not a valid JPEG'; exit 1; }
           echo "$rect_type" | grep -qi 'jpeg' || { echo 'ERROR: rectangle logo is not a valid JPEG'; exit 1; }
 
