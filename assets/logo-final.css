@@ -1,0 +1,4 @@
+/* Permanent Kartik Clarity logo visibility guard. Never allow decorative layers to hide real brand artwork. */
+.brand img,.hero-brand img,.profile img,.user img,.footer img,img[src*="logo-circle"],img[src*="logo-rectangle"],img[src*="kartik-clarity"]{display:block!important;visibility:visible!important;opacity:1!important;position:relative!important;z-index:1001!important;filter:none!important;mix-blend-mode:normal!important;transform:none!important;object-fit:contain!important;}
+.brand,.hero-brand,.profile,.user,.footer{isolation:isolate;}
+.brand::before,.brand::after,.hero-brand::before,.hero-brand::after,.profile::before,.profile::after,.footer::before,.footer::after{display:none!important;content:none!important;}
