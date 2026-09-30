@@ -21,7 +21,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare exact repository site
+      - name: Validate and prepare exact repository site
         shell: bash
         run: |
           set -euo pipefail
@@ -31,14 +31,20 @@ jobs:
           touch _site/.nojekyll
 
           test -s _site/index.html
+          test -s _site/assets/logo-circle.jpg
+          test -s _site/assets/logo-rectangle.jpg
           test -s _site/assets/logo-circle.svg
           test -s _site/assets/logo-rectangle.svg
-          grep -q 'href="../logo-circle.svg"' _site/assets/logo-circle.svg
-          grep -q 'href="../logo-rectangle.svg"' _site/assets/logo-rectangle.svg
-          test -s _site/logo-circle.svg
-          test -s _site/logo-rectangle.svg
 
-          echo 'Kartik Clarity official self-contained logo chain verified in final Pages artifact.'
+          grep -q 'logo-circle.jpg' _site/assets/logo-circle.svg
+          grep -q 'logo-rectangle.jpg' _site/assets/logo-rectangle.svg
+
+          if grep -RniE 'raw\.githubusercontent\.com|https?://[^"'"'"' ]*logo|href="\.\./logo-|src="\.\./logo-' _site --include='*.html' --include='*.js' --include='*.css' --include='*.svg'; then
+            echo 'ERROR: external or broken logo dependency detected.'
+            exit 1
+          fi
+
+          echo 'Kartik Clarity local logo assets and references verified in final Pages artifact.'
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
