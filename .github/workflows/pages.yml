@@ -1,0 +1,75 @@
+name: Deploy Executive Revenue Scorecard
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare static site
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site assets
+          mkdir -p _site/assets
+          cp index.html _site/index.html
+          touch _site/.nojekyll
+
+          # The repository currently stores the supplied brand package as a ZIP.
+          # Extract it without depending on its internal folder structure.
+          if [ -f apply-brand-identity-assets.zip ]; then
+            mkdir -p /tmp/brand
+            unzip -oq apply-brand-identity-assets.zip -d /tmp/brand
+          fi
+
+          circle="$(find /tmp/brand -type f \( -iname 'logo-circle.jpg' -o -iname 'logo-circle.jpeg' -o -iname 'logo-circle.png' \) | head -n 1 || true)"
+          rect="$(find /tmp/brand -type f \( -iname 'logo-rectangle.jpg' -o -iname 'logo-rectangle.jpeg' -o -iname 'logo-rectangle.png' \) | head -n 1 || true)"
+
+          if [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
+          if [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
+
+          # Also support future direct asset files committed to the repo.
+          for f in logo-circle.jpg logo-circle.jpeg logo-circle.png; do
+            if [ -f "$f" ]; then cp "$f" _site/assets/logo-circle.jpg; fi
+          done
+          for f in logo-rectangle.jpg logo-rectangle.jpeg logo-rectangle.png; do
+            if [ -f "$f" ]; then cp "$f" _site/assets/logo-rectangle.jpg; fi
+          done
+
+          # Never fail the deployment because an optional brand image is absent.
+          # The page itself remains fully functional and GitHub Pages can publish it.
+          find _site -maxdepth 2 -type f -print
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
