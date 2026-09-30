@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title"><title id="title">Kartik Clarity logo</title><defs><clipPath id="circle"><circle cx="512" cy="512" r="504"/></clipPath></defs><circle cx="512" cy="512" r="504" fill="#fff"/><image href="logo-circle.jpg" x="8" y="8" width="1008" height="1008" preserveAspectRatio="xMidYMid meet" clip-path="url(#circle)"/></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc" preserveAspectRatio="xMidYMid meet">
+  <title id="title">Kartik Clarity logo</title>
+  <desc id="desc">Complete supplied Kartik Clarity circular artwork, displayed without CSS cropping or SVG clipping.</desc>
+  <image href="logo-circle.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="xMidYMid meet"/>
+</svg>
