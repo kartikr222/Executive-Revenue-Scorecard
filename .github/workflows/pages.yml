@@ -31,11 +31,11 @@ jobs:
           touch _site/.nojekyll
 
           # FINAL BRAND LOCK: direct local artwork is forced after every other script/style layer.
-          sed -i 's#</head>#<link rel="stylesheet" href="assets/logo-final-v2.css?v=final2">\n<script src="period-accuracy.js" defer></script>\n<script src="assets/logo-force.js?v=final2" defer></script>\n</head>#' _site/index.html
+          sed -i 's#</head>#<link rel="stylesheet" href="assets/logo-final-v2.css?v=final3">\n<script src="period-accuracy.js" defer></script>\n<script src="assets/logo-final-v3.js?v=final3" defer></script>\n</head>#' _site/index.html
 
           test -s _site/index.html
           test -s _site/period-accuracy.js
-          test -s _site/assets/logo-force.js
+          test -s _site/assets/logo-final-v3.js
           test -s _site/assets/kartik-clarity-logo.jpg
           test -s _site/assets/kartik-clarity-mark.jpg
           test -s _site/assets/logo-final-v2.css
@@ -44,7 +44,7 @@ jobs:
 
           grep -q 'kartik-clarity-mark.jpg' _site/assets/logo-circle.svg
           grep -q 'kartik-clarity-logo.jpg' _site/assets/logo-rectangle.svg
-          grep -q 'logo-force.js' _site/index.html
+          grep -q 'logo-final-v3.js' _site/index.html
           grep -q 'q1:' _site/period-accuracy.js
           grep -q 'q2:' _site/period-accuracy.js
           grep -q 'q3:' _site/period-accuracy.js
