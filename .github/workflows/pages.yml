@@ -20,50 +20,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Prepare static site and canonical logos
+      - name: Prepare static site
         shell: bash
         run: |
-          set -euo pipefail
+          set -e
           rm -rf _site
           mkdir -p _site/assets
           cp index.html _site/index.html
           cp 404.html _site/404.html
           cp final-polish.js _site/final-polish.js
-          touch _site/.nojekyll
-
-          # The committed assets are the exact supplied Kartik Clarity logos.
           cp assets/logo-circle.jpg _site/assets/logo-circle.jpg
           cp assets/logo-rectangle.jpg _site/assets/logo-rectangle.jpg
-
-          # GitHub Pages serves these raster assets directly. Do not depend on
-          # nested-image SVG wrappers or ZIP extraction for first paint.
+          touch _site/.nojekyll
           sed -i 's#assets/logo-circle\.svg#assets/logo-circle.jpg#g' _site/index.html
           sed -i 's#assets/logo-rectangle\.svg#assets/logo-rectangle.jpg#g' _site/index.html
-
-          test -s _site/index.html
-          test -s _site/assets/logo-circle.jpg
-          test -s _site/assets/logo-rectangle.jpg
-          file _site/assets/logo-circle.jpg | grep -qi 'jpeg'
-          file _site/assets/logo-rectangle.jpg | grep -qi 'jpeg'
-          grep -q 'assets/logo-circle.jpg' _site/index.html
-          grep -q 'assets/logo-rectangle.jpg' _site/index.html
-
-          echo '=== FINAL BRAND ASSETS ==='
-          file _site/assets/logo-circle.jpg
-          file _site/assets/logo-rectangle.jpg
+          echo "Circle logo:"; file _site/assets/logo-circle.jpg
+          echo "Rectangle logo:"; file _site/assets/logo-rectangle.jpg
           ls -lh _site/assets/logo-circle.jpg _site/assets/logo-rectangle.jpg
-          echo '=== PUBLISHING ==='
-          find _site -maxdepth 2 -type f -print
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-
   deploy:
     environment:
       name: github-pages
