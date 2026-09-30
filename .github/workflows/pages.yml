@@ -30,6 +30,8 @@ jobs:
           cp index.html _site/index.html
           cp tool-finder.css _site/tool-finder.css
           cp tool-finder.js _site/tool-finder.js
+          cp final-polish.css _site/final-polish.css
+          cp final-polish.js _site/final-polish.js
           touch _site/.nojekyll
 
           # Preserve the supplied brand artwork as the source image for the SVG logo wrappers.
@@ -48,17 +50,17 @@ jobs:
           if [ ! -f _site/assets/logo-circle.jpg ] && [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
           if [ ! -f _site/assets/logo-rectangle.jpg ] && [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
 
-          # The final UI references SVG logos only. The SVGs preserve the complete supplied artwork
-          # and deliberately use contain/meet semantics so faces, wordmarks and badges are never eaten by cropping.
+          # The final UI references SVG logos only. SVGs use contain/meet semantics so faces,
+          # wordmarks and badges are never cropped by CSS or an SVG clip path.
           test -f _site/assets/logo-circle.svg
           test -f _site/assets/logo-rectangle.svg
           test -f _site/assets/logo-circle.jpg
           test -f _site/assets/logo-rectangle.jpg
 
-          # Add the Tool Finder without rewriting the large single-file dashboard by hand.
+          # Add the Tool Finder and final runtime/visual integrity layers.
           sed -i 's#assets/logo-circle\.jpg#assets/logo-circle.svg#g; s#assets/logo-rectangle\.jpg#assets/logo-rectangle.svg#g' _site/index.html
-          sed -i 's#</head>#<link rel="stylesheet" href="tool-finder.css"></head>#' _site/index.html
-          sed -i 's#</body>#<script src="tool-finder.js" defer></script></body>#' _site/index.html
+          sed -i 's#</head>#<link rel="stylesheet" href="tool-finder.css"><link rel="stylesheet" href="final-polish.css"></head>#' _site/index.html
+          sed -i 's#</body>#<script src="tool-finder.js" defer></script><script src="final-polish.js" defer></script></body>#' _site/index.html
 
           # Release integrity checks.
           ! grep -q 'src="assets/logo-circle.jpg"\|src="assets/logo-rectangle.jpg"' _site/index.html
@@ -66,7 +68,11 @@ jobs:
           grep -q 'assets/logo-rectangle.svg' _site/index.html
           grep -q 'tool-finder.js' _site/index.html
           grep -q 'tool-finder.css' _site/index.html
+          grep -q 'final-polish.js' _site/index.html
+          grep -q 'final-polish.css' _site/index.html
           test -f _site/index.html
+          test -f _site/assets/logo-circle.svg
+          test -f _site/assets/logo-rectangle.svg
           find _site -maxdepth 2 -type f -print
 
       - name: Setup Pages
