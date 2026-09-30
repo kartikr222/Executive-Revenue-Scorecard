@@ -21,60 +21,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build immutable self-contained Kartik Clarity branding
+      - name: Prepare exact repository site
         shell: bash
         run: |
           set -euo pipefail
-
           rm -rf _site
-          mkdir -p _site/assets
+          mkdir -p _site
 
-          # AUTHORITATIVE BRAND SOURCE:
-          # These two root SVGs contain the real Kartik Clarity artwork as
-          # embedded JPEG data. They have NO external image dependency.
-          test -s logo-circle.svg
-          test -s logo-rectangle.svg
-          grep -q 'data:image/jpeg;base64,' logo-circle.svg
-          grep -q 'data:image/jpeg;base64,' logo-rectangle.svg
-
-          cp index.html _site/index.html
-          cp logo-circle.svg _site/logo-circle.svg
-          cp logo-rectangle.svg _site/logo-rectangle.svg
-
-          if [ -f 404.html ]; then cp 404.html _site/404.html; fi
+          # This is a static GitHub Pages site. Deploy the repository files
+          # exactly as committed. No logo rewriting, URL rewriting, image
+          # conversion, or JavaScript asset generation is allowed here.
+          rsync -a --exclude='.git' --exclude='_site' ./ _site/
           touch _site/.nojekyll
 
-          # Force every active visible logo reference to the self-contained
-          # official Kartik Clarity artwork at the deployed site root.
-          # This deliberately eliminates every JPG/SVG wrapper dependency.
-          sed -i -E \
-            's#assets/logo-circle\.(svg|jpg|jpeg|png|webp)#logo-circle.svg#g; \
-             s#assets/logo-rectangle\.(svg|jpg|jpeg|png|webp)#logo-rectangle.svg#g; \
-             s#https://kartikr222\.github\.io/Executive-Revenue-Scorecard/(assets/)?logo-circle\.(svg|jpg|jpeg|png|webp)#logo-circle.svg#g; \
-             s#https://kartikr222\.github\.io/Executive-Revenue-Scorecard/(assets/)?logo-rectangle\.(svg|jpg|jpeg|png|webp)#logo-rectangle.svg#g' \
-            _site/index.html
+          # The live site must contain the canonical Kartik Clarity artwork.
+          test -s _site/index.html
+          test -s _site/assets/logo-circle.svg
+          test -s _site/assets/logo-rectangle.svg
+          grep -q 'data:image/jpeg;base64,' _site/assets/logo-circle.svg
+          grep -q 'data:image/jpeg;base64,' _site/assets/logo-rectangle.svg
 
-          # Verify the final deployed HTML uses ONLY the official
-          # self-contained Kartik Clarity SVG artwork.
-          echo '--- ACTIVE BRAND REFERENCES ---'
-          grep -oE '(^|["'"' ])logo-(circle|rectangle)\.svg' _site/index.html | sort | uniq -c || true
-
-          # No visible logo may point to an image outside the deployed site.
-          if grep -nE 'https?://[^"'"' ]*(logo-circle|logo-rectangle)' _site/index.html; then
-            echo 'ERROR: external logo URL remains in deployed HTML'
-            exit 1
-          fi
-
-          # The authoritative SVGs themselves must remain self-contained.
-          if grep -nE '<image[^>]+(https?://|\.\./)' _site/logo-circle.svg _site/logo-rectangle.svg; then
-            echo 'ERROR: external/relative image dependency remains in logo SVG'
-            exit 1
-          fi
-
-          test -s _site/logo-circle.svg
-          test -s _site/logo-rectangle.svg
-
-          echo 'Kartik Clarity official self-contained logos locked into Pages artifact.'
+          echo 'Kartik Clarity logos verified in final Pages artifact.'
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
