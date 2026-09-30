@@ -2,16 +2,15 @@
 (function () {
   'use strict';
 
-  var root = document.querySelector('base');
-  var base = root && root.href ? root.href : document.baseURI;
-  var mark = new URL('assets/kartik-clarity-mark.jpg', base).href;
-  var wordmark = new URL('assets/kartik-clarity-logo.jpg', base).href;
+  /* Same-origin GitHub Pages assets. No relative SVG chain and no external CDN. */
+  var mark = '/Executive-Revenue-Scorecard/assets/kartik-clarity-mark.jpg';
+  var wordmark = '/Executive-Revenue-Scorecard/assets/kartik-clarity-logo.jpg';
 
   function apply(img, src) {
     if (!img) return;
     img.removeAttribute('srcset');
     img.removeAttribute('sizes');
-    if (img.getAttribute('src') !== src) img.src = src;
+    if (img.getAttribute('src') !== src) img.setAttribute('src', src);
     img.loading = 'eager';
     img.decoding = 'async';
     img.style.setProperty('display', 'block', 'important');
@@ -25,7 +24,6 @@
       'img[src*="logo-circle"]', 'img[src*="logo-rectangle"]',
       'img[src*="logo.jpg"]', 'img[src*="logo.svg"]'
     ];
-
     var seen = new Set();
     selectors.forEach(function (selector) {
       document.querySelectorAll(selector).forEach(function (img) {
@@ -35,7 +33,6 @@
         apply(img, word ? wordmark : mark);
       });
     });
-
     var icon = document.querySelector('link[rel="icon"]');
     if (icon) icon.href = mark;
   }
@@ -45,7 +42,5 @@
   } else {
     repair();
   }
-
-  /* One additional pass after all normal page scripts have initialized. */
   window.addEventListener('load', repair, { once: true, passive: true });
 })();
