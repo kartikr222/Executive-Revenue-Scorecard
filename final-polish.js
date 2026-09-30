@@ -1,8 +1,24 @@
 (()=>{
   const BRAND={
-    circle:'assets/logo-circle.jpg',
-    rectangle:'assets/logo-rectangle.jpg'
+    circle:'https://raw.githubusercontent.com/kartikr222/Executive-Revenue-Scorecard/main/logo-circle.jpg',
+    rectangle:'https://raw.githubusercontent.com/kartikr222/Executive-Revenue-Scorecard/main/logo-rectangle.jpg'
   };
+
+  function applyLogo(img, url){
+    if(!img) return;
+    img.setAttribute('decoding','sync');
+    img.setAttribute('draggable','false');
+    img.style.objectFit='contain';
+    img.style.objectPosition='center center';
+    img.style.display='block';
+    img.onerror=()=>{
+      if(img.dataset.kcLogoFallback==='1') return;
+      img.dataset.kcLogoFallback='1';
+      img.onerror=null;
+      img.src=url;
+    };
+    if(img.src!==url) img.src=url;
+  }
 
   function fixBrand(){
     document.querySelectorAll('img').forEach(img=>{
@@ -10,27 +26,18 @@
       const alt=(img.getAttribute('alt')||'').toLowerCase();
       const cls=(img.className||'').toString().toLowerCase();
       const parent=(img.parentElement?.className||'').toString().toLowerCase();
-      const isCircle=/logo-circle|profile|avatar|account/.test(src+' '+alt+' '+cls+' '+parent);
-      const isRectangle=/logo-rectangle|hero-brand|footer/.test(src+' '+alt+' '+cls+' '+parent);
-
-      if(isRectangle) img.src=BRAND.rectangle;
-      else if(isCircle) img.src=BRAND.circle;
-
-      img.setAttribute('decoding','async');
-      img.setAttribute('draggable','false');
-      img.style.objectFit='contain';
-      img.style.objectPosition='center center';
-      img.style.display='block';
-
+      const signal=src+' '+alt+' '+cls+' '+parent;
+      const isCircle=/logo-circle|profile|avatar|account|brand-mark/.test(signal);
+      const isRectangle=/logo-rectangle|hero-brand|footer|kartik clarity/.test(signal);
+      if(isRectangle) applyLogo(img,BRAND.rectangle);
+      else if(isCircle) applyLogo(img,BRAND.circle);
       if(img.closest('.hero-brand')){
         img.loading='eager';
         img.style.width='100%';
         img.style.height='100%';
       }
     });
-
-    const icon=document.querySelector('link[rel="icon"]');
-    if(icon) icon.href=BRAND.circle;
+    document.querySelectorAll('link[rel~="icon"]').forEach(icon=>{ icon.href=BRAND.circle; });
   }
 
   function installPeriodGuard(){
@@ -50,6 +57,7 @@
     setTimeout(fixBrand,250);
     setTimeout(fixBrand,1000);
     setTimeout(fixBrand,2500);
+    setTimeout(fixBrand,5000);
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
