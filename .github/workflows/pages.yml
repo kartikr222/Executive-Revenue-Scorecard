@@ -21,7 +21,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare and harden production logo assets
+      - name: Build and permanently validate local Kartik Clarity logos
         shell: bash
         run: |
           set -euo pipefail
@@ -33,27 +33,24 @@ jobs:
           test -s _site/index.html
           test -s _site/assets/kartik-clarity-logo.jpg
           test -s _site/assets/kartik-clarity-mark.jpg
+          test -s _site/assets/logo-circle.svg
+          test -s _site/assets/logo-rectangle.svg
 
-          # Normalize every legacy logo reference across the COMPLETE deploy artifact.
-          find _site -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.svg' \) -print0 | xargs -0 sed -i \
-            -e 's#assets/logo-circle\.svg#assets/kartik-clarity-mark.jpg#g' \
-            -e 's#assets/logo-rectangle\.svg#assets/kartik-clarity-logo.jpg#g' \
-            -e 's#assets/logo-circle\.jpg#assets/kartik-clarity-mark.jpg#g' \
-            -e 's#assets/logo-rectangle\.jpg#assets/kartik-clarity-logo.jpg#g'
+          # The SVGs are intentionally local wrappers around the verified local artwork.
+          grep -q 'kartik-clarity-mark.jpg' _site/assets/logo-circle.svg
+          grep -q 'kartik-clarity-logo.jpg' _site/assets/logo-rectangle.svg
 
-          # The deployed artifact must contain ONLY direct local Kartik Clarity logo assets.
-          if grep -RniE 'logo-circle\.svg|logo-rectangle\.svg|raw\.githubusercontent\.com|https?://[^"'"'"' ]*logo|href="\.\./logo-|src="\.\./logo-' _site --include='*.html' --include='*.js' --include='*.css' --include='*.svg'; then
-            echo 'ERROR: legacy, external, or broken logo dependency detected.'
+          # No external or parent-directory logo dependencies may reach production.
+          if grep -RniE 'raw\.githubusercontent\.com|https?://[^"'"'"' ]*(logo|favicon)|href="\.\./logo-|src="\.\./logo-' _site --include='*.html' --include='*.js' --include='*.css' --include='*.svg'; then
+            echo 'ERROR: external or broken logo dependency detected.'
             exit 1
           fi
 
-          # Validate actual JPEG signatures, not merely non-empty files.
+          # Validate actual JPEG signatures.
           test "$(xxd -p -l 2 _site/assets/kartik-clarity-logo.jpg)" = "ffd8"
           test "$(xxd -p -l 2 _site/assets/kartik-clarity-mark.jpg)" = "ffd8"
 
-          grep -Rql 'assets/kartik-clarity-logo.jpg' _site --include='*.html' --include='*.js' --include='*.css'
-          grep -Rql 'assets/kartik-clarity-mark.jpg' _site --include='*.html' --include='*.js' --include='*.css'
-          echo 'Permanent local Kartik Clarity logo system verified.'
+          echo 'PERMANENT KARTIK CLARITY LOGO SYSTEM VERIFIED.'
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
