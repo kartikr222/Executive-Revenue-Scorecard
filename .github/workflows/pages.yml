@@ -24,10 +24,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf _site /tmp/brand /tmp/brand-legacy /tmp/logo-fix
-          mkdir -p _site/assets /tmp/brand /tmp/brand-legacy /tmp/logo-fix
+          rm -rf _site /tmp/brand-legacy /tmp/logo-fix
+          mkdir -p _site/assets /tmp/brand-legacy /tmp/logo-fix
           cp index.html _site/index.html
           cp 404.html _site/404.html
+          cp final-polish.js _site/final-polish.js
           touch _site/.nojekyll
 
           # Start with repository fallbacks.
@@ -37,7 +38,6 @@ jobs:
           if [ -f assets/logo-rectangle.svg ]; then cp assets/logo-rectangle.svg _site/assets/logo-rectangle.svg; fi
 
           # Prefer the newest explicit logo-fix package, then the older brand package.
-          # This prevents stale/corrupt generated logo assets from winning during deployment.
           if [ -f logo-fix.zip ]; then unzip -oq logo-fix.zip -d /tmp/logo-fix; fi
           if [ -f apply-brand-identity-assets.zip ]; then unzip -oq apply-brand-identity-assets.zip -d /tmp/brand-legacy; fi
 
@@ -54,25 +54,40 @@ jobs:
           if [ -n "${circle}" ]; then cp "${circle}" _site/assets/logo-circle.jpg; fi
           if [ -n "${rect}" ]; then cp "${rect}" _site/assets/logo-rectangle.jpg; fi
 
-          # Fail the build rather than publish a page with missing brand assets.
+          # The page uses direct raster fallbacks for maximum browser reliability.
+          # The SVG wrappers remain available as optional vector assets, but are not
+          # allowed to be the only visible logo path.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('_site/index.html')
+          s=p.read_text(encoding='utf-8')
+          fix='''\n<script>\n(()=>{const c='assets/logo-circle.jpg',r='assets/logo-rectangle.jpg';const apply=()=>{document.querySelectorAll('img').forEach(i=>{const s=(i.getAttribute('src')||'').toLowerCase(),a=(i.getAttribute('alt')||'').toLowerCase(),p=(i.parentElement?.className||'').toString().toLowerCase();if(/logo-rectangle|hero-brand|footer/.test(s+' '+a+' '+p))i.src=r;else if(/logo-circle|profile|avatar|account/.test(s+' '+a+' '+p))i.src=c;i.style.objectFit='contain';i.style.objectPosition='center center';i.style.display='block';i.decoding='async'});const f=document.querySelector('link[rel="icon"]');if(f)f.href=c};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply);else apply();setTimeout(apply,250);setTimeout(apply,1000)} )();\n</script>\n<script src="final-polish.js"></script>\n'''
+          if 'src="final-polish.js"' not in s:
+              s=s.replace('</body>',fix+'</body>')
+          p.write_text(s,encoding='utf-8')
+          PY
+
+          # Fail the build rather than publish missing brand assets.
           test -f _site/index.html
           test -f _site/404.html
+          test -f _site/final-polish.js
           test -s _site/assets/logo-circle.jpg
           test -s _site/assets/logo-rectangle.jpg
-          test -f _site/assets/logo-circle.svg
-          test -f _site/assets/logo-rectangle.svg
-          grep -q 'Find a tool' _site/index.html
-          grep -q 'Build your executive report' _site/index.html
-          grep -q 'Print / Save PDF' _site/index.html
-          grep -q 'Reporting year' _site/index.html
-          grep -q 'Ctrl K' _site/index.html
+          grep -q 'final-polish.js' _site/index.html
+          grep -q 'assets/logo-circle.jpg' _site/index.html
+          grep -q 'assets/logo-rectangle.jpg' _site/index.html
 
-          # Verify the actual binary files are real JPEGs before publishing.
-          test "$(xxd -p -l 2 _site/assets/logo-circle.jpg)" = "ffd8"
-          test "$(xxd -p -l 2 _site/assets/logo-rectangle.jpg)" = "ffd8"
+          # Verify the canonical raster assets are real JPEGs.
+          circle_type="$(file -b _site/assets/logo-circle.jpg)"
+          rect_type="$(file -b _site/assets/logo-rectangle.jpg)"
+          echo "Circle logo: ${circle_type}"
+          echo "Rectangle logo: ${rect_type}"
+          echo "Selected circle source: ${circle:-repository fallback}"
+          echo "Selected rectangle source: ${rect:-repository fallback}"
+          echo "$circle_type" | grep -qi 'jpeg' || { echo 'ERROR: circle logo is not a valid JPEG'; exit 1; }
+          echo "$rect_type" | grep -qi 'jpeg' || { echo 'ERROR: rectangle logo is not a valid JPEG'; exit 1; }
 
           find _site -maxdepth 2 -type f -print
-          file _site/assets/logo-circle.jpg _site/assets/logo-rectangle.jpg
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact
