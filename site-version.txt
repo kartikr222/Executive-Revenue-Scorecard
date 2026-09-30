@@ -1,1 +1,1 @@
-Executive Revenue Scorecard - final executive dashboard polish, logo visibility and functional reporting periods verified.
+Executive Revenue Scorecard - final executive dashboard: SVG-safe logo rendering, full logo visibility, Tool Finder, functional reporting periods, responsive QA and GitHub Pages release.
