@@ -21,7 +21,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate and prepare exact repository site
+      - name: Prepare and harden production logo assets
         shell: bash
         run: |
           set -euo pipefail
@@ -31,20 +31,30 @@ jobs:
           touch _site/.nojekyll
 
           test -s _site/index.html
-          test -s _site/assets/logo-circle.jpg
-          test -s _site/assets/logo-rectangle.jpg
-          test -s _site/assets/logo-circle.svg
-          test -s _site/assets/logo-rectangle.svg
+          test -s _site/assets/kartik-clarity-logo.jpg
+          test -s _site/assets/kartik-clarity-mark.jpg
 
-          grep -q 'logo-circle.jpg' _site/assets/logo-circle.svg
-          grep -q 'logo-rectangle.jpg' _site/assets/logo-rectangle.svg
+          # Replace every legacy logo reference in the deploy artifact.
+          sed -i \
+            -e 's#assets/logo-circle\.svg#assets/kartik-clarity-mark.jpg#g' \
+            -e 's#assets/logo-rectangle\.svg#assets/kartik-clarity-logo.jpg#g' \
+            -e 's#assets/logo-circle\.jpg#assets/kartik-clarity-mark.jpg#g' \
+            -e 's#assets/logo-rectangle\.jpg#assets/kartik-clarity-logo.jpg#g' \
+            _site/index.html
 
-          if grep -RniE 'raw\.githubusercontent\.com|https?://[^"'"'"' ]*logo|href="\.\./logo-|src="\.\./logo-' _site --include='*.html' --include='*.js' --include='*.css' --include='*.svg'; then
-            echo 'ERROR: external or broken logo dependency detected.'
+          # The deployed page must use direct local JPEGs, never an SVG wrapper.
+          if grep -RniE 'logo-circle\.svg|logo-rectangle\.svg|raw\.githubusercontent\.com|https?://[^"'"'"' ]*logo|href="\.\./logo-|src="\.\./logo-' _site --include='*.html' --include='*.js' --include='*.css' --include='*.svg'; then
+            echo 'ERROR: legacy, external, or broken logo dependency detected.'
             exit 1
           fi
 
-          echo 'Kartik Clarity local logo assets and references verified in final Pages artifact.'
+          # Validate real JPEG magic bytes, not merely non-empty files.
+          test "$(xxd -p -l 2 _site/assets/kartik-clarity-logo.jpg)" = "ffd8"
+          test "$(xxd -p -l 2 _site/assets/kartik-clarity-mark.jpg)" = "ffd8"
+
+          grep -q 'assets/kartik-clarity-logo.jpg' _site/index.html
+          grep -q 'assets/kartik-clarity-mark.jpg' _site/index.html
+          echo 'Permanent local Kartik Clarity logo system verified.'
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
