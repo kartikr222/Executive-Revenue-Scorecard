@@ -24,49 +24,47 @@ jobs:
       - name: Build Pages artifact
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
           rm -rf _site brand-assets
           mkdir -p _site/assets brand-assets
           cp index.html _site/index.html
           cp 404.html _site/404.html
           touch _site/.nojekyll
 
-          # Use the supplied logo ZIP when present. The repository JPEGs remain a fallback.
+          # Extract the supplied logo package(s). The uploaded artwork is the source of truth.
           for z in logo-fix.zip apply-brand-identity-assets.zip; do
-            if [ -f "$z" ]; then
-              unzip -oq "$z" -d brand-assets || true
-            fi
+            if [ -f "$z" ]; then unzip -oq "$z" -d brand-assets || true; fi
           done
 
-          circle="$(find brand-assets -type f \( -iname '*circle*.png' -o -iname '*circle*.jpg' -o -iname '*circle*.jpeg' -o -iname '*circle*.webp' \) | head -n 1)"
-          rect="$(find brand-assets -type f \( -iname '*rectangle*.png' -o -iname '*rectangle*.jpg' -o -iname '*rectangle*.jpeg' -o -iname '*rectangle*.webp' -o -iname '*banner*.png' -o -iname '*banner*.jpg' -o -iname '*banner*.jpeg' \) | head -n 1)"
+          # Locate the actual supplied images. If filenames are opaque, classify them by aspect ratio.
+          CIRCLE=""
+          RECT=""
+          while IFS= read -r f; do
+            dims="$(identify -format '%w %h' "$f" 2>/dev/null || true)"
+            [ -n "$dims" ] || continue
+            w="${dims% *}"; h="${dims#* }"
+            [ "$w" -gt 0 ] && [ "$h" -gt 0 ] || continue
+            diff=$(( w > h ? w-h : h-w )); max=$(( w > h ? w : h ))
+            if [ -z "$CIRCLE" ] && [ $((diff*100)) -le $((max*12)) ]; then CIRCLE="$f"; fi
+            if [ -z "$RECT" ] && [ $((w*100)) -ge $((h*135)) ]; then RECT="$f"; fi
+          done < <(find brand-assets -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | sort -u)
 
-          if [ -n "$circle" ]; then
-            echo "Using supplied circle logo: $circle"
-            /opt/imagemagick/bin/convert "$circle" -auto-orient -strip _site/assets/logo-circle.png
-          else
-            echo "Using repository circle logo fallback"
-            /opt/imagemagick/bin/convert assets/logo-circle.jpg -auto-orient -strip _site/assets/logo-circle.png
-          fi
+          if [ -z "$CIRCLE" ]; then CIRCLE="assets/logo-circle.jpg"; fi
+          if [ -z "$RECT" ]; then RECT="assets/logo-rectangle.jpg"; fi
+          echo "Circle source: $CIRCLE"
+          echo "Rectangle source: $RECT"
 
-          if [ -n "$rect" ]; then
-            echo "Using supplied rectangle logo: $rect"
-            /opt/imagemagick/bin/convert "$rect" -auto-orient -strip _site/assets/logo-rectangle.png
-          else
-            echo "Using repository rectangle logo fallback"
-            /opt/imagemagick/bin/convert assets/logo-rectangle.jpg -auto-orient -strip _site/assets/logo-rectangle.png
-          fi
+          # Normalize both supplied logos to PNG. PNG is the visible browser source; no SVG nesting is involved.
+          convert "$CIRCLE" -auto-orient -strip _site/assets/logo-circle.png
+          convert "$RECT" -auto-orient -strip _site/assets/logo-rectangle.png
 
-          # Replace every logo reference in the page with direct PNG assets.
+          # Every logo in the page points to the direct PNG assets.
           sed -i 's#assets/logo-circle\.svg#assets/logo-circle.png#g; s#assets/logo-circle\.jpg#assets/logo-circle.png#g; s#assets/logo-rectangle\.svg#assets/logo-rectangle.png#g; s#assets/logo-rectangle\.jpg#assets/logo-rectangle.png#g' _site/index.html
-
-          # Use absolute GitHub Pages paths + cache-busting so the browser cannot resolve an old/stale relative asset.
           sed -i 's#assets/logo-circle\.png#https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-circle.png?v=final#g; s#assets/logo-rectangle\.png#https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-rectangle.png?v=final#g' _site/index.html
 
-          echo 'Circle:'
-          /opt/imagemagick/bin/identify _site/assets/logo-circle.png
-          echo 'Rectangle:'
-          /opt/imagemagick/bin/identify _site/assets/logo-rectangle.png
+          echo '--- DEPLOYED LOGOS ---'
+          identify _site/assets/logo-circle.png
+          identify _site/assets/logo-rectangle.png
           test -s _site/assets/logo-circle.png
           test -s _site/assets/logo-rectangle.png
 
