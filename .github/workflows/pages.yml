@@ -18,78 +18,59 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Pages artifact with supplied logos
+      - name: Build static Pages artifact with permanent local brand assets
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf _site brand-assets
-          mkdir -p _site/assets brand-assets
+
+          rm -rf _site
+          mkdir -p _site/assets
+
+          # Copy the real, repository-owned Kartik Clarity artwork directly.
+          # Do not route visible logos through SVG wrappers or external URLs.
+          test -s assets/logo-circle.jpg
+          test -s assets/logo-rectangle.jpg
+          cp assets/logo-circle.jpg _site/assets/logo-circle.jpg
+          cp assets/logo-rectangle.jpg _site/assets/logo-rectangle.jpg
+
           cp index.html _site/index.html
-          cp 404.html _site/404.html
+          if [ -f 404.html ]; then cp 404.html _site/404.html; fi
           touch _site/.nojekyll
 
-          # Extract the user's uploaded logo packages. Never depend on SVG wrappers for the visible artwork.
-          for z in logo-fix.zip apply-brand-identity-assets.zip; do
-            if [ -f "$z" ]; then unzip -oq "$z" -d brand-assets || true; fi
-          done
+          # Make every visible logo reference use the actual local raster artwork.
+          # Relative project paths are intentional: GitHub Pages serves this repo at
+          # /Executive-Revenue-Scorecard/, so root-relative /assets paths are unsafe.
+          sed -i -E \
+            's#assets/logo-circle\.(svg|jpg|jpeg|png|webp)(\?[^" ]*)?#assets/logo-circle.jpg#g; \
+             s#assets/logo-rectangle\.(svg|jpg|jpeg|png|webp)(\?[^" ]*)?#assets/logo-rectangle.jpg#g; \
+             s#https://kartikr222\.github\.io/Executive-Revenue-Scorecard/assets/logo-circle\.(svg|jpg|jpeg|png|webp)(\?[^" ]*)?#assets/logo-circle.jpg#g; \
+             s#https://kartikr222\.github\.io/Executive-Revenue-Scorecard/assets/logo-rectangle\.(svg|jpg|jpeg|png|webp)(\?[^" ]*)?#assets/logo-rectangle.jpg#g' \
+            _site/index.html
 
-          CIRCLE=""
-          RECT=""
+          # Remove stale SVG fallback references too, so the browser has one
+          # deterministic visible asset and never falls back to a missing wrapper.
+          sed -i 's#assets/logo-circle\.svg#assets/logo-circle.jpg#g; s#assets/logo-rectangle\.svg#assets/logo-rectangle.jpg#g' _site/index.html
 
-          # Prefer raster artwork from the supplied ZIPs. Filename match first.
-          CIRCLE="$(find brand-assets -type f \( -iname '*circle*.png' -o -iname '*circle*.jpg' -o -iname '*circle*.jpeg' -o -iname '*circle*.webp' \) | head -n 1 || true)"
-          RECT="$(find brand-assets -type f \( -iname '*rectangle*.png' -o -iname '*rectangle*.jpg' -o -iname '*rectangle*.jpeg' -o -iname '*rectangle*.webp' -o -iname '*banner*.png' -o -iname '*banner*.jpg' -o -iname '*banner*.jpeg' \) | head -n 1 || true)"
+          echo '--- DEPLOYED BRAND ASSETS ---'
+          ls -lh _site/assets/logo-circle.jpg _site/assets/logo-rectangle.jpg
+          file _site/assets/logo-circle.jpg _site/assets/logo-rectangle.jpg
 
-          # If filenames are opaque, classify supplied raster files by dimensions.
-          if [ -z "$CIRCLE" ] || [ -z "$RECT" ]; then
-            while IFS= read -r f; do
-              dims="$(identify -format '%w %h' "$f" 2>/dev/null || true)"
-              [ -n "$dims" ] || continue
-              w="${dims% *}"; h="${dims#* }"
-              [ "$w" -gt 0 ] && [ "$h" -gt 0 ] || continue
-              diff=$(( w > h ? w-h : h-w )); max=$(( w > h ? w : h ))
-              if [ -z "$CIRCLE" ] && [ $((diff*100)) -le $((max*12)) ]; then CIRCLE="$f"; fi
-              if [ -z "$RECT" ] && [ $((w*100)) -ge $((h*135)) ]; then RECT="$f"; fi
-            done < <(find brand-assets -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | sort -u)
+          test -s _site/assets/logo-circle.jpg
+          test -s _site/assets/logo-rectangle.jpg
+
+          echo '--- VERIFY NO VISIBLE SVG LOGO REFERENCES REMAIN ---'
+          if grep -nE 'logo-(circle|rectangle)\.svg' _site/index.html; then
+            echo 'ERROR: stale SVG logo reference remains'
+            exit 1
           fi
 
-          # If the supplied package contains true SVG artwork, use it only when no raster source exists.
-          if [ -z "$CIRCLE" ]; then CIRCLE="$(find brand-assets -type f -iname '*circle*.svg' | head -n 1 || true)"; fi
-          if [ -z "$RECT" ]; then RECT="$(find brand-assets -type f \( -iname '*rectangle*.svg' -o -iname '*banner*.svg' \) | head -n 1 || true)"; fi
+          echo '--- VERIFY LOCAL RASTER REFERENCES ---'
+          grep -oE 'assets/logo-(circle|rectangle)\.jpg' _site/index.html | sort | uniq -c
 
-          # Final repository fallbacks guarantee the deployment never ships a missing logo.
-          if [ -z "$CIRCLE" ]; then CIRCLE="assets/logo-circle.jpg"; fi
-          if [ -z "$RECT" ]; then RECT="assets/logo-rectangle.jpg"; fi
-
-          circle_ext="${CIRCLE##*.}"; circle_ext="${circle_ext,,}"
-          rect_ext="${RECT##*.}"; rect_ext="${rect_ext,,}"
-          case "$circle_ext" in png|jpg|jpeg|webp|svg) ;; *) echo 'ERROR: unsupported circle logo format'; exit 1;; esac
-          case "$rect_ext" in png|jpg|jpeg|webp|svg) ;; *) echo 'ERROR: unsupported rectangle logo format'; exit 1;; esac
-
-          echo "FINAL CIRCLE SOURCE: $CIRCLE"
-          echo "FINAL RECTANGLE SOURCE: $RECT"
-          echo "FINAL CIRCLE FORMAT: $circle_ext"
-          echo "FINAL RECTANGLE FORMAT: $rect_ext"
-
-          cp "$CIRCLE" "_site/assets/logo-circle.$circle_ext"
-          cp "$RECT" "_site/assets/logo-rectangle.$rect_ext"
-
-          # Point every logo placeholder at the exact supplied source file.
-          sed -i -E "s#assets/logo-circle\.(svg|jpg|jpeg|png|webp)#assets/logo-circle.${circle_ext}#g; s#assets/logo-rectangle\.(svg|jpg|jpeg|png|webp)#assets/logo-rectangle.${rect_ext}#g" _site/index.html
-
-          # Absolute Pages URL + cache-busting removes every relative-path/cache ambiguity.
-          sed -i "s#assets/logo-circle.${circle_ext}#https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-circle.${circle_ext}?v=final#g; s#assets/logo-rectangle.${rect_ext}#https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-rectangle.${rect_ext}?v=final#g" _site/index.html
-
-          echo '--- FINAL DEPLOYED LOGO FILES ---'
-          ls -lh _site/assets/logo-circle.* _site/assets/logo-rectangle.*
-          file _site/assets/logo-circle.* _site/assets/logo-rectangle.*
-          test -s "_site/assets/logo-circle.$circle_ext"
-          test -s "_site/assets/logo-rectangle.$rect_ext"
-
-      - name: Configure Pages
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
@@ -104,6 +85,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Deploy
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
