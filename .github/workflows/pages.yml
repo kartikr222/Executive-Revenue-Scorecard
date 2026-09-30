@@ -21,82 +21,56 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare static site and install supplied logos
+      - name: Build Pages artifact
         shell: bash
         run: |
-          set -euo pipefail
+          set -e
           rm -rf _site brand-assets
           mkdir -p _site/assets brand-assets
           cp index.html _site/index.html
           cp 404.html _site/404.html
           touch _site/.nojekyll
 
-          # The uploaded ZIP is the source of truth. Extract every available brand package.
+          # Use the supplied logo ZIP when present. The repository JPEGs remain a fallback.
           for z in logo-fix.zip apply-brand-identity-assets.zip; do
             if [ -f "$z" ]; then
-              mkdir -p "brand-assets/${z%.zip}"
-              unzip -o -q "$z" -d "brand-assets/${z%.zip}"
+              unzip -oq "$z" -d brand-assets || true
             fi
           done
 
-          # Collect actual image files from the supplied packages and the repository.
-          mapfile -t IMAGES < <(find brand-assets assets -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | sort -u)
-          CIRCLE=""
-          RECT=""
-          for f in "${IMAGES[@]}"; do
-            dims=$(identify -format '%w %h' "$f" 2>/dev/null || true)
-            [ -n "$dims" ] || continue
-            w=${dims% *}; h=${dims#* }
-            if [ -z "$CIRCLE" ] && [ "$w" -gt 0 ] && [ "$h" -gt 0 ]; then
-              # Square-ish artwork is the supplied circular mark.
-              diff=$(( w > h ? w-h : h-w ))
-              max=$(( w > h ? w : h ))
-              if [ $((diff*100)) -le $((max*12)) ]; then CIRCLE="$f"; fi
-            fi
-            if [ -z "$RECT" ] && [ "$w" -gt 0 ] && [ "$h" -gt 0 ]; then
-              # Wide artwork is the supplied rectangle mark.
-              if [ $((w*100)) -ge $((h*135)) ]; then RECT="$f"; fi
-            fi
-          done
-          [ -n "$CIRCLE" ] || { echo 'ERROR: supplied circle logo not found'; exit 1; }
-          [ -n "$RECT" ] || { echo 'ERROR: supplied rectangle logo not found'; exit 1; }
+          circle="$(find brand-assets -type f \( -iname '*circle*.png' -o -iname '*circle*.jpg' -o -iname '*circle*.jpeg' -o -iname '*circle*.webp' \) | head -n 1)"
+          rect="$(find brand-assets -type f \( -iname '*rectangle*.png' -o -iname '*rectangle*.jpg' -o -iname '*rectangle*.jpeg' -o -iname '*rectangle*.webp' -o -iname '*banner*.png' -o -iname '*banner*.jpg' -o -iname '*banner*.jpeg' \) | head -n 1)"
 
-          # Convert to PNG for deterministic GitHub Pages/browser rendering.
-          # This preserves the supplied artwork while eliminating SVG/nested-image issues.
-          convert "$CIRCLE" -auto-orient -strip -define png:compression-level=9 _site/assets/logo-circle.png
-          convert "$RECT" -auto-orient -strip -define png:compression-level=9 _site/assets/logo-rectangle.png
+          if [ -n "$circle" ]; then
+            echo "Using supplied circle logo: $circle"
+            /opt/imagemagick/bin/convert "$circle" -auto-orient -strip _site/assets/logo-circle.png
+          else
+            echo "Using repository circle logo fallback"
+            /opt/imagemagick/bin/convert assets/logo-circle.jpg -auto-orient -strip _site/assets/logo-circle.png
+          fi
 
-          # Also retain direct JPG fallbacks when they exist.
-          cp assets/logo-circle.jpg _site/assets/logo-circle.jpg 2>/dev/null || true
-          cp assets/logo-rectangle.jpg _site/assets/logo-rectangle.jpg 2>/dev/null || true
+          if [ -n "$rect" ]; then
+            echo "Using supplied rectangle logo: $rect"
+            /opt/imagemagick/bin/convert "$rect" -auto-orient -strip _site/assets/logo-rectangle.png
+          else
+            echo "Using repository rectangle logo fallback"
+            /opt/imagemagick/bin/convert assets/logo-rectangle.jpg -auto-orient -strip _site/assets/logo-rectangle.png
+          fi
 
-          # Force every logo reference in the deployed HTML to use the generated PNGs.
+          # Replace every logo reference in the page with direct PNG assets.
           sed -i 's#assets/logo-circle\.svg#assets/logo-circle.png#g; s#assets/logo-circle\.jpg#assets/logo-circle.png#g; s#assets/logo-rectangle\.svg#assets/logo-rectangle.png#g; s#assets/logo-rectangle\.jpg#assets/logo-rectangle.png#g' _site/index.html
 
-          # Cache-bust the exact deployed assets and add a final browser-level fallback.
-          sed -i 's#assets/logo-circle\.png#assets/logo-circle.png?v=20260930#g; s#assets/logo-rectangle\.png#assets/logo-rectangle.png?v=20260930#g' _site/index.html
-          cat >> _site/index.html <<'EOF'
-<script>
-(()=>{
-  const root='https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/';
-  const swap=()=>document.querySelectorAll('img[src*="logo-circle"],img[src*="logo-rectangle"]').forEach(img=>{
-    const circle=img.src.toLowerCase().includes('logo-circle');
-    const file=circle?'logo-circle.png':'logo-rectangle.png';
-    const target=root+file+'?v=20260930';
-    if(img.src!==target){img.onerror=null;img.src=target;}
-    img.style.objectFit='contain';img.style.objectPosition='center';img.style.visibility='visible';img.style.opacity='1';
-  });
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',swap);else swap();
-})();
-</script>
-EOF
+          # Use absolute GitHub Pages paths + cache-busting so the browser cannot resolve an old/stale relative asset.
+          sed -i 's#assets/logo-circle\.png#https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-circle.png?v=final#g; s#assets/logo-rectangle\.png#https://kartikr222.github.io/Executive-Revenue-Scorecard/assets/logo-rectangle.png?v=final#g' _site/index.html
 
-          echo '--- FINAL LOGO ASSETS ---'
-          identify _site/assets/logo-circle.png _site/assets/logo-rectangle.png
-          ls -lh _site/assets/logo-circle.png _site/assets/logo-rectangle.png
-          grep -o 'assets/logo-[a-z-]*\.png[^" ]*' _site/index.html | sort -u
+          echo 'Circle:'
+          /opt/imagemagick/bin/identify _site/assets/logo-circle.png
+          echo 'Rectangle:'
+          /opt/imagemagick/bin/identify _site/assets/logo-rectangle.png
+          test -s _site/assets/logo-circle.png
+          test -s _site/assets/logo-rectangle.png
 
-      - name: Setup Pages
+      - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
@@ -111,6 +85,6 @@ EOF
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
