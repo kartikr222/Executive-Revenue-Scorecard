@@ -1,7 +1,7 @@
 (()=>{
   const BRAND={
-    circle:'https://raw.githubusercontent.com/kartikr222/Executive-Revenue-Scorecard/main/logo-circle.jpg',
-    rectangle:'https://raw.githubusercontent.com/kartikr222/Executive-Revenue-Scorecard/main/logo-rectangle.jpg'
+    circle:'assets/logo-circle.svg',
+    rectangle:'assets/logo-rectangle.svg'
   };
 
   function applyLogo(img, url){
@@ -17,7 +17,7 @@
       img.onerror=null;
       img.src=url;
     };
-    if(img.src!==url) img.src=url;
+    if(img.getAttribute('src')!==url) img.src=url;
   }
 
   function fixBrand(){
